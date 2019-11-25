@@ -15,7 +15,19 @@ use Illuminate\Support\Facades\Redis as RedisManager;
  */
 
 Route::get('/articles', function () {
-    $articles = RedisManager::lrange('articles', 0, -1);
+    // if cache isn't expired, then return it
+    if (RedisManager::keys('articles')) {
+        $articles = RedisManager::lrange('articles', 0, -1);
+    } else {
+        // otherwise cache is expired, fetch database
+        $articles = Article::pluck('name');
+        foreach ($articles as $article) {
+            RedisManager::lpush('articles', $article);
+        }
+        // set cache time limit
+        RedisManager::expire('articles', 30);
+    }
+
     return view('welcome')->withArticles($articles);
 });
 
